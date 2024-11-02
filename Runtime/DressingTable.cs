@@ -19,8 +19,11 @@ namespace com.github.pandrabox.dressingtable.runtime
         public LilTexBlendMode BlendMode;
         public string Path;
         public bool ViewSample;
-        public bool CreateMenu;
         public VRCContactReceiver LinkContact;
+
+        public bool CreateMenu;
+        public Texture2D Icon;
+        public string MenuName;
     }
 
     [Serializable]
@@ -40,7 +43,7 @@ namespace com.github.pandrabox.dressingtable.runtime
         public DressingTableEditor() : base(true, PROJECTNAME, ProjectTypes.Asset)
         {
         }
-        SerializedProperty _spTex, _spBlendMode, _spPath, _spViewSample, _spCreateMenu, _spLinkContact;
+        SerializedProperty _spTex, _spBlendMode, _spPath, _spViewSample, _spCreateMenu, _spLinkContact,_spIcon,_spMenuName;
 
         protected override void DefineSerial()
         {
@@ -50,6 +53,8 @@ namespace com.github.pandrabox.dressingtable.runtime
             _spViewSample = serializedObject.FindProperty(nameof(DressingTable.ViewSample));
             _spCreateMenu = serializedObject.FindProperty(nameof(DressingTable.CreateMenu));
             _spLinkContact = serializedObject.FindProperty(nameof(DressingTable.LinkContact));
+            _spIcon = serializedObject.FindProperty(nameof(DressingTable.Icon));
+            _spMenuName = serializedObject.FindProperty(nameof(DressingTable.MenuName));
         }
 
         public override void OnInnerInspectorGUI()
@@ -66,16 +71,14 @@ namespace com.github.pandrabox.dressingtable.runtime
                     if (_spViewSample.boolValue) GUI.enabled = false;
                     EditorGUILayout.PropertyField(_spPath);
                     GUI.enabled = true;
-                    EditorGUILayout.PropertyField(_spCreateMenu);
                     EditorGUILayout.PropertyField(_spLinkContact);
                 }
-
                 if (_spTex != null)
                 {
                     var tex = _spTex.objectReferenceValue as Texture2D;
                     if (tex != null && !_spTex.hasMultipleDifferentValues)
                     {
-                        var size = EditorGUIUtility.singleLineHeight * 5;
+                        var size = EditorGUIUtility.singleLineHeight * 4;
                         var margin = 4;
                         var withMargin = new Vector2(margin + size, margin + size);
 
@@ -88,6 +91,40 @@ namespace com.github.pandrabox.dressingtable.runtime
 
                         GUI.Box(rect, new GUIContent(), "flow node 0");
                         GUI.DrawTexture(rect, tex);
+                    }
+                }
+            }
+
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                using (new EditorGUILayout.VerticalScope())
+                {
+                    EditorGUILayout.PropertyField(_spCreateMenu);
+                    if (_spCreateMenu.boolValue)
+                    {
+                        EditorGUILayout.PropertyField(_spIcon);
+                        EditorGUILayout.PropertyField(_spMenuName);
+                    }
+                }
+                if (_spIcon != null && _spCreateMenu.boolValue)
+                {
+                    var ico = _spIcon.objectReferenceValue as Texture2D;
+                    if (ico != null && !_spIcon.hasMultipleDifferentValues)
+                    {
+                        var size = EditorGUIUtility.singleLineHeight * 4;
+                        var margin = 4;
+                        var withMargin = new Vector2(margin + size, margin + size);
+
+                        var rect = GUILayoutUtility.GetRect(withMargin.x, withMargin.y, GUILayout.ExpandWidth(false),
+                            GUILayout.ExpandHeight(true));
+                        rect.x += margin;
+                        rect.y = rect.y + rect.height / 2 - size / 2;
+                        rect.width = size;
+                        rect.height = size;
+
+                        GUI.Box(rect, new GUIContent(), "flow node 1");
+                        GUI.DrawTexture(rect, ico);
                     }
                 }
             }

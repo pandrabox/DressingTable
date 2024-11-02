@@ -26,14 +26,16 @@ namespace com.github.pandrabox.dressingtable.editor
     {
         [MenuItem("PanDbg/DressingTablePlugin")]
         public static void DbgDressingTablePlugin() {
-            SetDebugMode(true);
+            PandraProject prj = new PandraProject(TopAvatar, PROJECTNAME, PROJECTTYPE);
+            prj.SetDebugMode(true);
             new DressingClear(TopAvatar);
             new DressingTableMain(TopAvatar);
         }
         [MenuItem("PanDbg/DressingClear")]
         public static void DbgDressingClear()
         {
-            SetDebugMode(true);
+            PandraProject prj = new PandraProject(TopAvatar, PROJECTNAME, PROJECTTYPE);
+            prj.SetDebugMode(true);
             new DressingClear(TopAvatar);
         }
     }
@@ -59,16 +61,30 @@ namespace com.github.pandrabox.dressingtable.editor
         DressingTable DressingTable;
         DressingTarget DressingTarget;
         PandraProject Prj;
-
+        public string SWName => string.IsNullOrEmpty(DressingTable.MenuName) ? "DressingSW" : DressingTable.MenuName;
+        public string SWParamName => Prj.GetParameterName(SWName);
         public DressingTableMain(VRCAvatarDescriptor desc)
         {
             Prj = new PandraProject(desc, PROJECTNAME, PROJECTTYPE);
             DressingTable = desc.transform.GetComponentInChildren<DressingTable>(false);
             DressingTarget = new DressingTarget(DressingTable);
             DressingTarget.Execute();
-            if(DressingTable.CreateMenu) CreateToggleMenu();
-            CreateContactReceptor();
+            CreateMenu();
+        }
 
+        public void CreateMenu()
+        {
+            if (DressingTable.LinkContact == null)
+            {
+                if (DressingTable.CreateMenu)
+                {
+                    CreateToggleMenu();
+                }
+            }
+            else
+            {
+                CreateContactReceptor();
+            }
         }
 
         public void CreateContactReceptor()
@@ -109,6 +125,23 @@ namespace com.github.pandrabox.dressingtable.editor
             {
                 AnimatorState offState = contactReceptor.layers[0].stateMachine.states.FirstOrDefault(s => s.state.name == "OFF").state;
                 offState.motion = ab.Outp("OFF");
+                contactReceptor.AddParameter(new AnimatorControllerParameter
+                {
+                    name = SWParamName,
+                    type = AnimatorControllerParameterType.Bool
+                });
+                var t1 = offState.AddTransition(contactState);
+                t1.duration = 0;
+                t1.exitTime = 0;
+                t1.hasExitTime = false;
+                t1.AddCondition(AnimatorConditionMode.If, 1, SWParamName);
+
+                var t2 = contactState.AddTransition(offState);
+                t2.duration = 0;
+                t2.exitTime = 0;
+                t2.hasExitTime = false;
+                t2.AddCondition(AnimatorConditionMode.IfNot, 1, SWParamName);
+                CreateToggleSwitch();
             }
             AnimatorControllerParameter parameter = new AnimatorControllerParameter
             {
@@ -126,19 +159,19 @@ namespace com.github.pandrabox.dressingtable.editor
 
         private void CreateToggleSwitch()
         {
-            Prj.CreateComponentObject<ModularAvatarMenuItem>("DressingSW", (x) =>
+            Prj.CreateComponentObject<ModularAvatarMenuItem>(SWName, (x) =>
             {
                 x.gameObject.AddComponent<ModularAvatarMenuInstaller>();
-                x.Control.name = "DressingSW";
+                x.Control.name = SWName;
                 x.Control.type = ControlType.Toggle;
-                x.Control.parameter = new Parameter { name = Prj.GetParameterName("SW") };
-                //x.Control.icon = AssetDatabase.LoadAssetAtPath<Texture2D>($@"{Prj.ImgFolder}Hue.png");
+                x.Control.parameter = new Parameter { name = SWParamName };
+                if(DressingTable.Icon!=null) x.Control.icon = DressingTable.Icon;
             });
             var MAP = Prj.CreateComponentObject<ModularAvatarParameters>("Parameter", (x) =>
             {
                 x.parameters = new List<ParameterConfig>
                 {
-                    new ParameterConfig { nameOrPrefix = Prj.GetParameterName("SW"), syncType = ParameterSyncType.Bool, saved = false, localOnly = false, defaultValue = 0 }
+                    new ParameterConfig { nameOrPrefix = SWParamName, syncType = ParameterSyncType.Bool, saved = false, localOnly = false, defaultValue = 0 }
                 };
             });
         }
@@ -160,7 +193,7 @@ namespace com.github.pandrabox.dressingtable.editor
                 .Bind(DressingTarget.Path, typeof(Renderer), $@"material._Color{LayerStr}.a").Const2F(1);
             var bb = new BlendTreeBuilder(Prj, false, "DressingTableToggle", Prj.RootObject);
             bb.RootDBT(() =>{
-                bb.Param("1").Add1D("SW", () =>
+                bb.Param("1").Add1D(SWName, () =>
                 {
                     bb.Param(0).AddMotion(ab.Outp("OFF"));
                     bb.Param(1).AddMotion(ab.Outp("ON"));
