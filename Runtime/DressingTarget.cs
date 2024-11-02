@@ -23,9 +23,10 @@ namespace com.github.pandrabox.dressingtable.runtime
         public string PropNameDressTex { get; private set; }
         public string PropNameDressBlendMode { get; private set; }
         public DressingModeEnum DressingMode { get; private set; }
-        public string ErrorMsg { get; private set; }
         public DressingTable Target;
         const string sampleObjName = "DressingSample";
+        public string ErrorMsg { get; private set; }
+        public string WarningMsg { get; private set; }
 
         public enum DressingModeEnum
         {
@@ -39,6 +40,7 @@ namespace com.github.pandrabox.dressingtable.runtime
             Target = tgt;
             if (tgt == null) PutError("Dressing情報が見つかりません。");
             ErrorMsg = "";
+            WarningMsg = "";
             Path = tgt.Path;
             VRCAvatarDescriptor desc = GetAvatarDescriptor(tgt.gameObject);
             if (desc == null) PutError("アバターが見つかりません。");
@@ -74,6 +76,16 @@ namespace com.github.pandrabox.dressingtable.runtime
                 return;
             }
             if (DressingMode == DressingModeEnum.error) PutError($@"適切な空きスロットがありませんでした。2ndテクスチャ、3rdテクスチャのいずれかが空いていることを確認してください。　{Path}");
+            if (tgt.LinkContact != null)
+            {
+                var contact = tgt.LinkContact;
+                if (contact.allowSelf && contact.collisionTags.Contains("Head")) PutWarning($@"Contactの設定がAllowSelf && Headになっています。常時表示になるため、どちらかOFFを検討して下さい。");
+                if (!contact.allowOthers) PutWarning($@"ContactのAllowOthersがOffになっています。通常、ONを推奨します。");
+                if (!contact.collisionTags.Contains("HandL")) PutWarning($@"ContactのCollisionTagにHandLが設定されていません。設定を推奨します。");
+                if (!contact.collisionTags.Contains("HandR")) PutWarning($@"ContactのCollisionTagにHandRが設定されていません。設定を推奨します。");
+                if (contact.localOnly) PutWarning($@"ContactがlocalOnlyに設定されているため、自分以外に見えません。localOnly=falseを推奨します。");
+                if (contact.receiverType!=VRC.Dynamics.ContactReceiver.ReceiverType.Proximity) PutWarning($@"ContactのReceiverTypeがProximity以外に設定されています。通常、Proximityを推奨します。");
+            }
         }
 
 
@@ -150,6 +162,10 @@ namespace com.github.pandrabox.dressingtable.runtime
         private void PutError(string msg)
         {
             ErrorMsg += $"{msg}\n\r";
+        }
+        private void PutWarning(string msg)
+        {
+            WarningMsg += $"{msg}\n\r";
         }
     }
 }

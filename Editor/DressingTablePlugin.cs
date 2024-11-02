@@ -4,7 +4,6 @@ using com.github.pandrabox.pandravase.runtime;
 using com.github.pandrabox.dressingtable.editor;
 using com.github.pandrabox.dressingtable.runtime;
 using static com.github.pandrabox.pandravase.runtime.Util;
-using static com.github.pandrabox.pandravase.runtime.Global;
 using static com.github.pandrabox.dressingtable.runtime.Global;
 using UnityEngine;
 using VRC.SDK3.Avatars.Components;
@@ -15,6 +14,8 @@ using System.Collections.Generic;
 using System;
 using nadena.dev.modular_avatar.core;
 using static VRC.SDK3.Avatars.ScriptableObjects.VRCExpressionsMenu.Control;
+using System.IO;
+using UnityEditor.Animations;
 
 [assembly: ExportsPlugin(typeof(DressingTablePlugin))]
 
@@ -55,37 +56,108 @@ namespace com.github.pandrabox.dressingtable.editor
     }
     public class DressingTableMain
     {
+        DressingTable DressingTable;
         DressingTarget DressingTarget;
         PandraProject Prj;
 
         public DressingTableMain(VRCAvatarDescriptor desc)
         {
             Prj = new PandraProject(desc, PROJECTNAME, PROJECTTYPE);
-            DressingTable tgt = desc.transform.GetComponentInChildren<DressingTable>(false);
-            DressingTarget = new DressingTarget(tgt);
+            DressingTable = desc.transform.GetComponentInChildren<DressingTable>(false);
+            DressingTarget = new DressingTarget(DressingTable);
             DressingTarget.Execute();
-            CreateToggleMenu();
+            if(DressingTable.CreateMenu) CreateToggleMenu();
+            CreateContactReceptor();
 
+        }
+
+        public void CreateContactReceptor()
+        {
+            if (DressingTarget.DressingMode == DressingTarget.DressingModeEnum.error) return;
+            var LayerStr = DressingTarget.DressingMode == DressingTarget.DressingModeEnum.second ? "2nd" : "3rd";
+            var ab = new AnimationClipsBuilder();
+            ab.Clip("ContactReceptor")
+                .Bind(DressingTarget.Path, typeof(Renderer), $@"material._Color{LayerStr}.r").Const2F(1)
+                .Bind(DressingTarget.Path, typeof(Renderer), $@"material._Color{LayerStr}.g").Const2F(1)
+                .Bind(DressingTarget.Path, typeof(Renderer), $@"material._Color{LayerStr}.b").Const2F(1)
+                .Bind(DressingTarget.Path, typeof(Renderer), $@"material._Color{LayerStr}.a").Liner(0, 0, 1 / FPS, 1);
+            ab.Clip("OFF")
+                .Bind(DressingTarget.Path, typeof(Renderer), $@"material._Color{LayerStr}.r").Const2F(1)
+                .Bind(DressingTarget.Path, typeof(Renderer), $@"material._Color{LayerStr}.g").Const2F(1)
+                .Bind(DressingTarget.Path, typeof(Renderer), $@"material._Color{LayerStr}.b").Const2F(1)
+                .Bind(DressingTarget.Path, typeof(Renderer), $@"material._Color{LayerStr}.a").Const2F(0);
+            string contactParam;
+            contactParam = DressingTable.LinkContact.parameter;
+            if (string.IsNullOrEmpty(contactParam))
+            {
+                contactParam = Guid.NewGuid().ToString();
+                DressingTable.LinkContact.parameter=contactParam;
+            }
+            Directory.CreateDirectory(Prj.WorkFolder);
+            if (DressingTable.CreateMenu)
+            {
+                AssetDatabase.CopyAsset($@"{Prj.AssetsFolder}ContactReceptorWithSW.controller", $@"{Prj.WorkFolder}ContactReceptor.controller");
+            }
+            else
+            {
+                AssetDatabase.CopyAsset($@"{Prj.AssetsFolder}ContactReceptor.controller", $@"{Prj.WorkFolder}ContactReceptor.controller");
+            }
+            AnimatorController contactReceptor = AssetDatabase.LoadAssetAtPath<AnimatorController>($@"{Prj.WorkFolder}ContactReceptor.controller");
+            AnimatorState contactState =  contactReceptor.layers[0].stateMachine.states.FirstOrDefault(s => s.state.name == "Contact").state;
+            contactState.motion = ab.Outp("ContactReceptor");
+            if (DressingTable.CreateMenu)
+            {
+                AnimatorState offState = contactReceptor.layers[0].stateMachine.states.FirstOrDefault(s => s.state.name == "OFF").state;
+                offState.motion = ab.Outp("OFF");
+            }
+            AnimatorControllerParameter parameter = new AnimatorControllerParameter
+            {
+                name = contactParam,
+                type = AnimatorControllerParameterType.Float
+            };
+            contactReceptor.AddParameter(parameter);
+            contactState.timeParameter = contactParam;
+            Prj.CreateComponentObject<ModularAvatarMergeAnimator>("ContactReceptor", (x) => {
+                x.animator = contactReceptor;
+                x.matchAvatarWriteDefaults = true;
+                x.relativePathRoot.Set(Prj.RootObject);
+            });
+        }
+
+        private void CreateToggleSwitch()
+        {
+            Prj.CreateComponentObject<ModularAvatarMenuItem>("DressingSW", (x) =>
+            {
+                x.gameObject.AddComponent<ModularAvatarMenuInstaller>();
+                x.Control.name = "DressingSW";
+                x.Control.type = ControlType.Toggle;
+                x.Control.parameter = new Parameter { name = Prj.GetParameterName("SW") };
+                //x.Control.icon = AssetDatabase.LoadAssetAtPath<Texture2D>($@"{Prj.ImgFolder}Hue.png");
+            });
+            var MAP = Prj.CreateComponentObject<ModularAvatarParameters>("Parameter", (x) =>
+            {
+                x.parameters = new List<ParameterConfig>
+                {
+                    new ParameterConfig { nameOrPrefix = Prj.GetParameterName("SW"), syncType = ParameterSyncType.Bool, saved = false, localOnly = false, defaultValue = 0 }
+                };
+            });
         }
 
         public void CreateToggleMenu()
         {
             if (DressingTarget.DressingMode == DressingTarget.DressingModeEnum.error) return;
-            var ab = new AnimationClipsBuilder();
             var LayerStr = DressingTarget.DressingMode == DressingTarget.DressingModeEnum.second ? "2nd" : "3rd";
-            if (LayerStr!="")
-            {
-                ab.Clip("OFF")
-                    .Bind(DressingTarget.Path, typeof(Renderer), $@"material._Color{LayerStr}.r").Const2F(1)
-                    .Bind(DressingTarget.Path, typeof(Renderer), $@"material._Color{LayerStr}.g").Const2F(1)
-                    .Bind(DressingTarget.Path, typeof(Renderer), $@"material._Color{LayerStr}.b").Const2F(1)
-                    .Bind(DressingTarget.Path, typeof(Renderer), $@"material._Color{LayerStr}.a").Const2F(0);
-                ab.Clip("ON")
-                    .Bind(DressingTarget.Path, typeof(Renderer), $@"material._Color{LayerStr}.r").Const2F(1)
-                    .Bind(DressingTarget.Path, typeof(Renderer), $@"material._Color{LayerStr}.g").Const2F(1)
-                    .Bind(DressingTarget.Path, typeof(Renderer), $@"material._Color{LayerStr}.b").Const2F(1)
-                    .Bind(DressingTarget.Path, typeof(Renderer), $@"material._Color{LayerStr}.a").Const2F(1);
-            }
+            var ab = new AnimationClipsBuilder();
+            ab.Clip("OFF")
+                .Bind(DressingTarget.Path, typeof(Renderer), $@"material._Color{LayerStr}.r").Const2F(1)
+                .Bind(DressingTarget.Path, typeof(Renderer), $@"material._Color{LayerStr}.g").Const2F(1)
+                .Bind(DressingTarget.Path, typeof(Renderer), $@"material._Color{LayerStr}.b").Const2F(1)
+                .Bind(DressingTarget.Path, typeof(Renderer), $@"material._Color{LayerStr}.a").Const2F(0);
+            ab.Clip("ON")
+                .Bind(DressingTarget.Path, typeof(Renderer), $@"material._Color{LayerStr}.r").Const2F(1)
+                .Bind(DressingTarget.Path, typeof(Renderer), $@"material._Color{LayerStr}.g").Const2F(1)
+                .Bind(DressingTarget.Path, typeof(Renderer), $@"material._Color{LayerStr}.b").Const2F(1)
+                .Bind(DressingTarget.Path, typeof(Renderer), $@"material._Color{LayerStr}.a").Const2F(1);
             var bb = new BlendTreeBuilder(Prj, false, "DressingTableToggle", Prj.RootObject);
             bb.RootDBT(() =>{
                 bb.Param("1").Add1D("SW", () =>
@@ -94,22 +166,7 @@ namespace com.github.pandrabox.dressingtable.editor
                     bb.Param(1).AddMotion(ab.Outp("ON"));
                 });
             });
-            Prj.AddOrCreateComponentObject<ModularAvatarMenuItem>("DressingSW", (x) =>
-            {
-                x.gameObject.AddComponent<ModularAvatarMenuInstaller>();
-                x.Control.name = "DressingSW";
-                x.Control.type = ControlType.Toggle;
-                x.Control.parameter = new Parameter { name = Prj.GetParameterName("SW") };
-                //x.Control.icon = AssetDatabase.LoadAssetAtPath<Texture2D>($@"{Prj.ImgFolder}Hue.png");
-            });
-
-            var MAP = Prj.GetOrCreateComponentObject<ModularAvatarParameters>("Parameter", (x) =>
-            {
-                x.parameters = new List<ParameterConfig>
-                {
-                    new ParameterConfig { nameOrPrefix = Prj.GetParameterName("SW"), syncType = ParameterSyncType.Bool, saved = false, localOnly = false, defaultValue = 0 }
-                };
-            });
+            CreateToggleSwitch();
         }
     }
 

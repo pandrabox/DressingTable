@@ -109,12 +109,20 @@ namespace com.github.pandrabox.dressingtable.runtime
 
             Title("チェック");
             DressingTarget = new DressingTarget((DressingTable)target);
+            var ok = true;
             if (DressingTarget.ErrorMsg != "")
             {
                 EditorGUILayout.HelpBox($"エラーがあります。解決しないと本ギミックは動作しません。", MessageType.Error);
                 EditorGUILayout.HelpBox($"{DressingTarget.ErrorMsg}", MessageType.Error);
+                ok=false;
             }
-            else
+            if (DressingTarget.WarningMsg != "")
+            {
+                EditorGUILayout.HelpBox($"ワーニングがあります。このままでも動く可能性はありますが、解決することでよりよくなります。", MessageType.Warning);
+                EditorGUILayout.HelpBox($"{DressingTarget.WarningMsg}", MessageType.Warning);
+                ok = false;
+            }
+            if(ok)
             {
                 EditorGUILayout.HelpBox("DressingTableは適切に準備できています！", MessageType.Info);
             }
