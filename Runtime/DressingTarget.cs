@@ -55,15 +55,18 @@ namespace com.github.pandrabox.dressingtable.runtime
             if (GameObject == null) PutError($@"GameObjectが見つかりません。指定パス{Path}を確認してください。");
             Renderer = GameObject?.GetComponent<Renderer>();
             if (Renderer == null) PutError($@"Rendererが見つかりません。指定パス{Path}のオブジェクトはRendererを有しているものを指定してください。");
-            if (sampleObj == null)//本番環境
+            if (Renderer != null)
             {
-                Mat1st = Renderer?.materials.Length > 0 ? Renderer.materials[0] : null;
-                if (Renderer?.materials.Length == 0) PutError($@"Rendererにマテリアルが指定されていません。マテリアルを指定してください。　{Path}");
-            }
-            else // サンプル環境
-            {
-                Mat1st = Renderer?.sharedMaterials.Length > 0 ? Renderer.sharedMaterials[0] : null;
-                if (Renderer?.sharedMaterials.Length == 0) PutError($@"Rendererにマテリアルが指定されていません。マテリアルを指定してください。　{Path}");
+                if (sampleObj == null)//本番環境
+                {
+                    Mat1st = Renderer?.materials?.Length > 0 ? Renderer?.materials[0] : null;
+                    if (Renderer?.materials.Length == 0) PutError($@"Rendererにマテリアルが指定されていません。マテリアルを指定してください。　{Path}");
+                }
+                else // サンプル環境
+                {
+                    Mat1st = Renderer?.sharedMaterials.Length > 0 ? Renderer.sharedMaterials[0] : null;
+                    if (Renderer?.sharedMaterials.Length == 0) PutError($@"Rendererにマテリアルが指定されていません。マテリアルを指定してください。　{Path}");
+                }
             }
             if (Mat1st == null) PutError($@"マテリアルの取得に失敗しました。　{Path}");
             if (Mat1st?.shader == null) PutError($@"シェーダーに異常があります。　{Path}");
