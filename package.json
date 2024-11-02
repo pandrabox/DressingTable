@@ -1,6 +1,6 @@
 {
   "name": "com.github.pandrabox.dressingtable",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "displayName": "DressingTable",
   "author": {
     "name": "pandra"
@@ -11,7 +11,7 @@
     "com.vrchat.avatars": ">=3.4.0",
     "nadena.dev.modular-avatar": ">=1.9.0",
     "jp.lilxyzw.liltoon": ">=1.0.0",
-    "com.github.pandrabox.pandravase" : ">=1.1.8"
+    "com.github.pandrabox.pandravase" : ">=1.1.9"
   },
   "license": "MIT"
 }
