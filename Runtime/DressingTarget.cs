@@ -10,6 +10,9 @@ using System.Linq;
 using VRC.SDK3.Avatars.Components;
 using System.Security.Cryptography;
 using System.IO;
+using System;
+using System.Reflection;
+using System.Collections;
 
 namespace com.github.pandrabox.dressingtable.runtime
 {
@@ -97,8 +100,41 @@ namespace com.github.pandrabox.dressingtable.runtime
                 if (contact.localOnly) PutWarning($@"ContactがlocalOnlyに設定されているため、自分以外に見えません。localOnly=falseを推奨します。");
                 if (contact.receiverType!=VRC.Dynamics.ContactReceiver.ReceiverType.Proximity) PutWarning($@"ContactのReceiverTypeがProximity以外に設定されています。通常、Proximityを推奨します。");
             }
+            if (CheckLightLimitChangerColorTempControl(desc)) PutWarning("非互換アセットLightLimitChangerの色温度調整機能ONを検出しました。頬紅が常時100%ONで固定される現象が発生します。問題なければ、LightLimitChangerの色温度調整機能をOFFにして下さい。");
         }
 
+
+        private bool CheckLightLimitChangerColorTempControl(VRCAvatarDescriptor desc)
+        {
+            Type llcType = Type.GetType("io.github.azukimochi.LightLimitChangerSettings, io.github.azukimochi.light-limit-changer");
+            if (llcType != null)
+            {
+                MethodInfo getComponentsMethod = typeof(Transform).GetMethod("GetComponentsInChildren", new Type[] { typeof(bool) });
+                MethodInfo genericMethod = getComponentsMethod.MakeGenericMethod(llcType);
+                var components = (IEnumerable)genericMethod.Invoke(desc.transform, new object[] { false });
+                foreach (var component in components)
+                {
+                    FieldInfo parametersField = llcType.GetField("Parameters");
+                    if (parametersField != null)
+                    {
+                        var parameters = parametersField.GetValue(component);
+                        if (parameters != null)
+                        {
+                            FieldInfo allowColorTempControlField = parameters.GetType().GetField("AllowColorTempControl");
+                            if (allowColorTempControlField != null)
+                            {
+                                bool allowColorTempControl = (bool)allowColorTempControlField.GetValue(parameters);
+                                if (allowColorTempControl)
+                                {
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            return false;
+        }
 
         private GameObject SampleObject => Target?.transform?.Find(sampleObjName)?.gameObject;
 
@@ -130,7 +166,7 @@ namespace com.github.pandrabox.dressingtable.runtime
         {
             if (SampleObject == null)
             {
-                GameObject duplicate = Object.Instantiate(GameObject);
+                GameObject duplicate = UnityEngine.Object.Instantiate(GameObject);
                 duplicate.SetActive(true);
                 duplicate.name = sampleObjName;
                 duplicate.transform.SetParent(Target.transform);
